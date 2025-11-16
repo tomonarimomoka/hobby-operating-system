@@ -6,3 +6,6 @@ __pycache__/
 tags/
 .vscode/
 .venv/
+# 自作OSの生成物
+disk.img
+mnt/
