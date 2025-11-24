@@ -1,6 +1,12 @@
 
 # include <Uefi.h>
 # include <Library/UefiLib.h>
+# include <Library/UefiBootServicesTableLib.h>
+# include <Library/PrintLib.h>
+# include <Protocol/LoadedImage.h>
+# include <Protocol/SimpleFileSystem.h>
+# include <Protocol/DiskIo2.h>
+# include <Protocol/BlockIo.h>
 
 // Hello, world!
 // EFI_STATUS EFIAPI UefiMain(EFI_HANDLE ImageHandle,EFI_SYSTEM_TABLE *SystemTable){
@@ -41,7 +47,6 @@ const CHAR16* GetMemoryTypeUnicode(EFI_MEMORY_TYPE type){
         case EfiBootServicesData: return L"EfiBootServiceDate";
         case EfiRuntimeServicesCode: return L"EfiRuntimeServicesCode";
         case EfiRuntimeServicesData: return L"EfiRuntimeSevicesData";
-
         case EfiConventionalMemory: return L"EficonvetionalMemory"; //空き容量
         case EfiUnusableMemory: return L"EfiUnusableMemoruy";
         case EfiACPIMemoryNVS:return L"EfiACPIMemoriy"; // ACPIは電源に関する制御のプロトコル（参考：https://wa3.i-3-i.info/word14319.html）
@@ -53,7 +58,6 @@ const CHAR16* GetMemoryTypeUnicode(EFI_MEMORY_TYPE type){
     }
 }
 
-// -----------
 EFI_STATUS SaveMemoryMap(struct MemoryMap* map, EFI_FILE_PROTOCOL* file){
     CHAR8 buf[256];
     UINTN len;
@@ -78,20 +82,51 @@ EFI_STATUS SaveMemoryMap(struct MemoryMap* map, EFI_FILE_PROTOCOL* file){
             desc->PhysicalStart,desc->NumberOfPages,
             desc->Attribute & 0xFFFFFlu);
             // 文字列を書き込む
-        file->Write(file, &len,buf) 
+        file->Write(file, &len,buf) ;
     }
-
     return EFI_SUCCESS;
 }
-CHAR8 memmap_buf[4096 * 4];
-struct MemoryMap memmap = {sizeof(memmap_buf),memmap_buf,0,0,0,0};
-GetMemoryMap(&memmap);
 
-EFI_FILE_PROTOCOL* root_dir;
-OpenRootDir(image_handle,&root_dir);
+EFI_STATUS OpenRootDir(EFI_HANDLE image_handle, EFI_FILE_PROTOCOL** root){
+    EFI_LOADED_IMAGE_PROTOCOL* loaded_image;
+    EFI_SIMPLE_FILE_SYSTEM_PROTOCOL* fs;
 
-EFI_FILE_PROTOCOL* memmap_file;
-root_dir->Open(root_dir,&memmap_file,L"\\memmap",EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE|RFI_FILE_MODE_CREATE,0);
+    gBS->OpenProtocol(
+        image_handle,
+        &gEfiLoadedImageProtocolGuid,
+        (VOID**)&loaded_image,
+        image_handle,
+        NULL,
+        EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL);
+    
+    gBS->OpenProtocol(
+        loaded_image->DeviceHandle,
+        &gEfiSimpleFileSystemProtocolGuid,
+        (VOID**)&fs,
+        image_handle,
+        NULL,
+        EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL
+    );
+    fs->OpenVolume(fs,root);
+    return EFI_SUCCESS;
+}
+EFI_STATUS EFIAPI UefiMain(EFI_HANDLE image_handle,EFI_SYSTEM_TABLE* system_table){
+    Print(L"Hello, TheMiku world!\n");
+    CHAR8 memmap_buf[4096 * 4];
+    struct MemoryMap memmap = {sizeof(memmap_buf),memmap_buf,0,0,0,0};
+    GetMemoryMap(&memmap);
 
-SaveMemoryMap(&memmap,memmap_file);
-memmap_file->Close(memmap_file)
+    EFI_FILE_PROTOCOL* root_dir;
+    OpenRootDir(image_handle,&root_dir);
+    EFI_FILE_PROTOCOL* memmap_file;
+    root_dir->Open(
+        root_dir,&memmap_file,L"\\memmap",EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE|EFI_FILE_MODE_CREATE,0
+    );
+
+    SaveMemoryMap(&memmap,memmap_file);
+    memmap_file->Close(memmap_file);
+
+    Print(L"All done\n");
+    while (1);
+    return  0;
+}
