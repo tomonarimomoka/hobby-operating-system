@@ -1,9 +1,97 @@
 
 # include <Uefi.h>
 # include <Library/UefiLib.h>
-EFI_STATUS EFIAPI UefiMain(EFI_HANDLE ImageHandle,EFI_SYSTEM_TABLE *SystemTable){
-    // SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Hello, world!\n");
-    Print(L"Hello, TheMiku world!\n");
-    while (1);
-    return  0;    
+
+// Hello, world!
+// EFI_STATUS EFIAPI UefiMain(EFI_HANDLE ImageHandle,EFI_SYSTEM_TABLE *SystemTable){
+//     Print(L"Hello, TheMiku world!\n");
+//     while (1);
+//     return  0;    
+// }
+
+struct MemoryMap{
+    UINTN buffer_size;
+    VOID* buffer;
+    UINTN map_size;
+    UINTN map_key;
+    UINTN descriptor_size;
+    UINTN descriptor_version;
+};
+
+EFI_STATUS GetMemoryMap(struct MemoryMap* map){
+    if(map->buffer == NULL){
+        return EFI_BUFFER_TOO_SMALL;
+    }
+    map->map_size = map->buffer_size;
+    return gBS->GetMemoryMap(
+        &map->map_size,
+        (EFI_MEMORY_DESCRIPTOR*)map->buffer,
+        &map->map_key,
+        &map->descriptor_size,
+        &map->descriptor_version
+    );
 }
+
+const CHAR16* GetMemoryTypeUnicode(EFI_MEMORY_TYPE type){
+    switch(type){
+        case EfiReservedMemoryType: return L"EfiResercedMemoryType";
+        case EfiLoaderCode: return L"EfiloaderCode";
+        case EfiLoaderData: return L"EfiLoaderData";
+        case EfiBootServicesCode: return L"EfiBootServicesCode";
+        case EfiBootServicesData: return L"EfiBootServiceDate";
+        case EfiRuntimeServicesCode: return L"EfiRuntimeServicesCode";
+        case EfiRuntimeServicesData: return L"EfiRuntimeSevicesData";
+
+        case EfiConventionalMemory: return L"EficonvetionalMemory"; //空き容量
+        case EfiUnusableMemory: return L"EfiUnusableMemoruy";
+        case EfiACPIMemoryNVS:return L"EfiACPIMemoriy"; // ACPIは電源に関する制御のプロトコル（参考：https://wa3.i-3-i.info/word14319.html）
+        case EfiMemoryMappedIO: return L"EfiMemoryMappedIO";
+        case EfiPalCode: return L"EfiPalCode";
+        case EfiPersistentMemory: return L"EfiPersistentMemory"; // Persistent=持続的
+        case EfiMaxMemoryType: return L"EfiMaxMemoryType";
+        default: return L"InvalidMemoryType";
+    }
+}
+
+// -----------
+EFI_STATUS SaveMemoryMap(struct MemoryMap* map, EFI_FILE_PROTOCOL* file){
+    CHAR8 buf[256];
+    UINTN len;
+
+    CHAR8* header = "Indec, Type, Type(name), PhysicalStart, NumberOfPages, Attribute\n";
+    len = AsciiStrLen(header);
+    file->Write(file, &len, header);
+
+    Print(L"map->buffer = %08lx, map->map_sixe = %08lx\n", map->buffer, map->map_size);
+
+    EFI_PHYSICAL_ADDRESS iter;
+    int i;
+    for(iter = (EFI_PHYSICAL_ADDRESS)map->buffer, i = 0;
+        iter < (EFI_PHYSICAL_ADDRESS)map->buffer + map->map_size;
+        iter += map->descriptor_size, i++){
+        EFI_MEMORY_DESCRIPTOR* desc = (EFI_MEMORY_DESCRIPTOR*)iter;
+        // メモリディスクリプタの値を文字列にする（discriptor＝ファイルの通り道の目印）
+        len = AsciiSPrint(
+            buf ,sizeof(buf),
+            "%u, %x, %-ls, %08lx, %lx, %lx\n",
+            i, desc->Type, GetMemoryTypeUnicode(desc->Type),
+            desc->PhysicalStart,desc->NumberOfPages,
+            desc->Attribute & 0xFFFFFlu);
+            // 文字列を書き込む
+        file->Write(file, &len,buf) 
+    }
+
+    return EFI_SUCCESS;
+}
+CHAR8 memmap_buf[4096 * 4];
+struct MemoryMap memmap = {sizeof(memmap_buf),memmap_buf,0,0,0,0};
+GetMemoryMap(&memmap);
+
+EFI_FILE_PROTOCOL* root_dir;
+OpenRootDir(image_handle,&root_dir);
+
+EFI_FILE_PROTOCOL* memmap_file;
+root_dir->Open(root_dir,&memmap_file,L"\\memmap",EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE|RFI_FILE_MODE_CREATE,0);
+
+SaveMemoryMap(&memmap,memmap_file);
+memmap_file->Close(memmap_file)
