@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "*.inc": "c"
+        "*.inc": "c",
+        "diskio2.h": "c"
     }
 }
