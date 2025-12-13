@@ -1,6 +1,7 @@
 # Usage: source buildenv.sh
 
-BASEDIR="$HOME/osbook/devenv/x86_64-elf"
+BASEDIR="$HOME/source/hobby-operating-system/devenv/x86_64-elf"
+# BASEDIR="$HOME/osbook/devenv/x86_64-elf"
 EDK2DIR="$HOME/edk2"
 
 if [ ! -d $BASEDIR ]
