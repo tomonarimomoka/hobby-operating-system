@@ -40,16 +40,16 @@ EFI_STATUS GetMemoryMap(struct MemoryMap* map){
 
 const CHAR16* GetMemoryTypeUnicode(EFI_MEMORY_TYPE type){
     switch(type){
-        case EfiReservedMemoryType: return L"EfiResercedMemoryType";
-        case EfiLoaderCode: return L"EfiloaderCode";
+        case EfiReservedMemoryType: return L"EfiReservedMemoryType";
+        case EfiLoaderCode: return L"EfiLoaderCode";
         case EfiLoaderData: return L"EfiLoaderData";
         case EfiBootServicesCode: return L"EfiBootServicesCode";
-        case EfiBootServicesData: return L"EfiBootServiceDate";
+        case EfiBootServicesData: return L"EfiBootServicesData";
         case EfiRuntimeServicesCode: return L"EfiRuntimeServicesCode";
-        case EfiRuntimeServicesData: return L"EfiRuntimeSevicesData";
-        case EfiConventionalMemory: return L"EficonvetionalMemory"; //空き容量
-        case EfiUnusableMemory: return L"EfiUnusableMemoruy";
-        case EfiACPIMemoryNVS:return L"EfiACPIMemoriy"; // ACPIは電源に関する制御のプロトコル（参考：https://wa3.i-3-i.info/word14319.html）
+        case EfiRuntimeServicesData: return L"EfiRuntimeServicesData";
+        case EfiConventionalMemory: return L"EfiConventionalMemory"; //空き容量
+        case EfiUnusableMemory: return L"EfiUnusableMemory";
+        case EfiACPIMemoryNVS:return L"EfiACPIMemory"; // ACPIは電源に関する制御のプロトコル（参考：https://wa3.i-3-i.info/word14319.html）
         case EfiMemoryMappedIO: return L"EfiMemoryMappedIO";
         case EfiPalCode: return L"EfiPalCode";
         case EfiPersistentMemory: return L"EfiPersistentMemory"; // Persistent=持続的
@@ -62,11 +62,11 @@ EFI_STATUS SaveMemoryMap(struct MemoryMap* map, EFI_FILE_PROTOCOL* file){
     CHAR8 buf[256];
     UINTN len;
 
-    CHAR8* header = "Indec, Type, Type(name), PhysicalStart, NumberOfPages, Attribute\n";
+    CHAR8* header = "Index, Type, Type(name), PhysicalStart, NumberOfPages, Attribute\n";
     len = AsciiStrLen(header);
     file->Write(file, &len, header);
 
-    Print(L"map->buffer = %08lx, map->map_sixe = %08lx\n", map->buffer, map->map_size);
+    Print(L"map->buffer = %08lx, map->map_size = %08lx\n", map->buffer, map->map_size);
 
     EFI_PHYSICAL_ADDRESS iter;
     int i;
@@ -80,7 +80,7 @@ EFI_STATUS SaveMemoryMap(struct MemoryMap* map, EFI_FILE_PROTOCOL* file){
             "%u, %x, %-ls, %08lx, %lx, %lx\n",
             i, desc->Type, GetMemoryTypeUnicode(desc->Type),
             desc->PhysicalStart,desc->NumberOfPages,
-            desc->Attribute & 0xFFFFFlu);
+            desc->Attribute & 0xffffflu);
             // 文字列を書き込む
         file->Write(file, &len,buf) ;
     }
@@ -198,10 +198,10 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE image_handle,EFI_SYSTEM_TABLE* system_tabl
     EFI_PHYSICAL_ADDRESS kernel_base_addr = 0x100000; // 指定したアドレスから確保しないと壊れるため、指定
     gBS->AllocatePages(
         AllocateAddress, EfiLoaderData,
-        (kernel_file_size = 0xfff) / 0x1000,&kernel_base_addr);
+        (kernel_file_size + 0xfff) / 0x1000,&kernel_base_addr);
     // カーネルファイルを読み込む
     kernel_file->Read(kernel_file, &kernel_file_size, (VOID*)kernel_base_addr);
-    Print(L"Kernel; 0x%0lx (%lu bytes)\n",kernel_base_addr,kernel_file_size);
+    Print(L"Kernel: 0x%0lx (%lu bytes)\n",kernel_base_addr,kernel_file_size);
 
     // すでに動いているブートサービスを停止させる
     EFI_STATUS status;
@@ -223,9 +223,9 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE image_handle,EFI_SYSTEM_TABLE* system_tabl
     // カーネルを起動する
     UINT64 entry_addr =*(UINT64*)(kernel_base_addr + 24); // EFL形式の仕様により24バイトのオフセット
 
-    typedef void EntryPointType(void);
+    typedef void EntryPointType(UINT64, UINT64);
     EntryPointType* entry_point = (EntryPointType*)entry_addr; // <---KernelMain()の実体のアドレスになるはず
-    entry_point();
+    entry_point(gop->Mode->FrameBufferBase,gop->Mode->FrameBufferSize);
 
     Print(L"All done\n");
     while (1);
