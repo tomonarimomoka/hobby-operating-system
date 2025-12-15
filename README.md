@@ -31,6 +31,6 @@ edk2フォルダに移動してから以下をたたく
 sh ../devenv/run_qemu.sh ＜ブートローダの実行ファイル＞　＜カーネルの実行ファイル＞
 ```
 ```sh
-sh ../devenv/run_qemu.sh ./Build/TheMikuLoaderX64/DEBUG_GCC5/X64/TheMikuLoaderPkg/Loader/OUTPUT/Loader.efi ../kernel/kernel.elf 
+sh ../devenv/run_qemu.sh ./Build/TheMikuLoaderX64/DEBUG_GCC5/X64/TheMikuLoader/TheMikuLoaderPkg/Loader/OUTPUT/Loader.efi ./kernel.elf
 ```
 実行ファイルはビルド後のバイナリファイル（.efi拡張子のもの）でないと動かないので注意！

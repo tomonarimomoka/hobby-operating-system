@@ -29,5 +29,5 @@
 
 #@range_begin(components)
 [Components]
-  TheMikuLoaderPkg/Loader.inf
+  TheMikuLoader/TheMikuLoaderPkg/Loader.inf
 #@range_end(components)
