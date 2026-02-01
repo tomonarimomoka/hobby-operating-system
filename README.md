@@ -34,3 +34,13 @@ sh ../devenv/run_qemu.sh ＜ブートローダの実行ファイル＞　＜カ�
 sh ../devenv/run_qemu.sh ./Build/TheMikuLoaderX64/DEBUG_GCC5/X64/TheMikuLoader/TheMikuLoaderPkg/Loader/OUTPUT/Loader.efi ./kernel.elf
 ```
 実行ファイルはビルド後のバイナリファイル（.efi拡張子のもの）でないと動かないので注意！
+
+## タグのチェックアウト
+以下でタグ一覧を見れる
+```sh
+git tag
+```
+以下でチェックアウトできる。
+```sh
+git checkout osbook_dayxxx
+```
