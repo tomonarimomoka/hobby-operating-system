@@ -9,6 +9,7 @@
 # include <Protocol/BlockIo.h>
 # include <Guid/FileInfo.h>
 # include "../../../kernel/frame_buffer_config.hpp"
+# include "elf.hpp"
 // Hello, world!
 // EFI_STATUS EFIAPI UefiMain(EFI_HANDLE ImageHandle,EFI_SYSTEM_TABLE *SystemTable){
 //     Print(L"Hello, TheMiku world!\n");
@@ -154,6 +155,29 @@ void Halt(void){
     while(1) __asm__("hlt");
 }
 
+void CalcLoadAddressRange(Elf64_Ehdr* ehdr, UINT64* first,UINT64* last){
+    Elf64_Phdr* phdr = (Elf64_Phdr*)((UINT64)ehdr + ehdr->e_phoff);
+    *first = MAX_UINT64;
+    *last = 0;
+    for(Elf64_Half i = 0; i< ehdr->e_phnum; ++i){
+      if(phdr[i].p_type != PT_LOAD) continue;
+      *first = MIN(*first, phdr[i].p_vaddr);
+      *last = MAX(*last, phdr[i].p_vaddr + phdr[i].p_memsz);
+    }
+}
+
+void CopyLoadSegments(Elf64_Ehdr* ehdr){
+    Elf64_Phdr* phdr = (Elf64_Phdr*)((UINT64)ehdr + ehdr->e_phoff);
+    for(Elf64_Half i = 0; i < ehdr->e_phnum; ++i){
+        if(phdr[i].p_type != PT_LOAD) continue;
+        UINT64 segm_in_file = (UINT64)ehdr + phdr[i].p_offset;
+        CopyMem((VOID*)phdr[i].p_vaddr,(VOID*)segm_in_file,phdr[i].p_filesz);
+
+        UINTN remain_bytes = phdr[i].p_memsz - phdr[i].p_filesz;
+        SetMem((VOID*)(phdr[i].p_vaddr + phdr[i].p_filesz),remain_bytes,0);
+    }
+}
+
 EFI_STATUS EFIAPI UefiMain(EFI_HANDLE image_handle,EFI_SYSTEM_TABLE* system_table){
     Print(L"Hello, TheMiku world!\n");
     CHAR8 memmap_buf[4096 * 4];
@@ -209,6 +233,43 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE image_handle,EFI_SYSTEM_TABLE* system_tabl
         Halt();
     }
     // カーネルファイルを読み込む
+    //// カーネルファイルを一時領域に読み込む
+    EFI_FILE_INFO* file_info = (EFI_FILE_INFO*)file_info_buffer;
+    UINTN kernel_file_size = file_info->FileSize;
+
+    VOID* kernel_buffer;
+    status = gBS -> AllocatePool(EfiLoaderData,kernel_file_size,&kernel_buffer); // kernelファイルを読み込むための一時領域の確保
+    if(EFI_ERROR(status)){
+        Print(L"failed to allocate pool: %r\n",status);
+        Halt();
+    }
+    status = kernel_file->Read(kernel_file,&kernel_file_size,kernel_buffer);
+    if(EFI_ERROR(status)){
+        Print(L"error: %r",status);
+        Halt();
+    }
+    //// 最終目的地を取得
+    Elf64_Ehdr* kernel_ehdr = (Elf64_Ehdr*)kernel_buffer;
+    UINT64 kernel_first_addr,kernel_last_addr;
+    CalcLoadAddressRange(kernel_ehdr,&kernel_first_addr,&kernel_last_addr);
+
+    UINTN num_pages = (kernel_last_addr - kernel_first_addr + 0xfff) / 0x1000;
+    status = gBS->AllocatePages(AllocateAddress,EfiLoaderData,num_pages,&kernel_first_addr);
+    if(EFI_ERROR(status)){
+        Print(L"failed to allocate pages: %r\n",status);
+        Halt();
+    }
+    //// LOADセグメントのコピー
+    CopyLoadSegments(kernel_ehdr);
+    Print(L"Kernel: 0x0lx - 0x%0lx\n",kernel_first_addr,kernel_last_addr);
+    status = gBS->FreePool(kernel_buffer);
+    if(EFI_ERROR(status)){
+        Print(L"failed to free pool: %r\n",status);
+        Halt();
+    }
+    //// メモリ領域を確保
+    UINT64 entry_addr = *(UINT64*)(kernel_first_addr + 24);
+
     kernel_file->Read(kernel_file, &kernel_file_size, (VOID*)kernel_base_addr);
     Print(L"Kernel: 0x%0lx (%lu bytes)\n",kernel_base_addr,kernel_file_size);
     // すでに動いているブートサービスを停止させる
