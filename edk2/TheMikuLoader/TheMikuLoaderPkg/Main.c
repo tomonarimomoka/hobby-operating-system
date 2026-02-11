@@ -8,14 +8,9 @@
 # include <Protocol/DiskIo2.h>
 # include <Protocol/BlockIo.h>
 # include <Guid/FileInfo.h>
+#include <Library/BaseMemoryLib.h>
 # include "../../../kernel/frame_buffer_config.hpp"
 # include "elf.hpp"
-// Hello, world!
-// EFI_STATUS EFIAPI UefiMain(EFI_HANDLE ImageHandle,EFI_SYSTEM_TABLE *SystemTable){
-//     Print(L"Hello, TheMiku world!\n");
-//     while (1);
-//     return  0;    
-// }
 
 struct MemoryMap{
     UINTN buffer_size;
@@ -180,18 +175,22 @@ void CopyLoadSegments(Elf64_Ehdr* ehdr){
 
 EFI_STATUS EFIAPI UefiMain(EFI_HANDLE image_handle,EFI_SYSTEM_TABLE* system_table){
     Print(L"Hello, TheMiku world!\n");
+    EFI_STATUS status;
     CHAR8 memmap_buf[4096 * 4];
     struct MemoryMap memmap = {sizeof(memmap_buf),memmap_buf,0,0,0,0};
-    GetMemoryMap(&memmap);
-
+    status = GetMemoryMap(&memmap);
+    if(EFI_ERROR(status)){
+        Print(L"failed to get memory map %r\n",status);
+        Halt();
+    }
     EFI_FILE_PROTOCOL* root_dir;
-    OpenRootDir(image_handle,&root_dir);
+    status = OpenRootDir(image_handle,&root_dir);
     EFI_FILE_PROTOCOL* memmap_file;
     root_dir->Open(
         root_dir,&memmap_file,L"\\memmap",EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE|EFI_FILE_MODE_CREATE,0
     );
 
-    SaveMemoryMap(&memmap,memmap_file);
+    status = SaveMemoryMap(&memmap,memmap_file);
     memmap_file->Close(memmap_file);
     
     EFI_GRAPHICS_OUTPUT_PROTOCOL* gop;
@@ -219,24 +218,15 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE image_handle,EFI_SYSTEM_TABLE* system_tabl
     UINTN file_info_size = sizeof(EFI_FILE_INFO) + sizeof(CHAR16) * 12 ;
     UINT8 file_info_buffer[file_info_size];
     kernel_file->GetInfo(kernel_file, &gEfiFileInfoGuid,&file_info_size, file_info_buffer);
-    //// 
-    EFI_FILE_INFO* file_info = (EFI_FILE_INFO*)file_info_buffer; // ポインタ
-    UINTN kernel_file_size = file_info->FileSize;
-
-    // カーネルファイルのメモリ領域を確保する
-    EFI_PHYSICAL_ADDRESS kernel_base_addr = 0x100000; // 指定したアドレスから確保しないと壊れるため、指定
-    EFI_STATUS status = gBS->AllocatePages(
-        AllocateAddress, EfiLoaderData,
-        (kernel_file_size + 0xfff) / 0x1000,&kernel_base_addr);
-    if(EFI_ERROR(status)){    
-        Print(L"failed to allocate pages: %r",status);
+    if (EFI_ERROR(status)){
+        Print(L"failed to get faile information: %r\n",status);
         Halt();
     }
-    // カーネルファイルを読み込む
-    //// カーネルファイルを一時領域に読み込む
-    EFI_FILE_INFO* file_info = (EFI_FILE_INFO*)file_info_buffer;
-    UINTN kernel_file_size = file_info->FileSize;
 
+    EFI_FILE_INFO* file_info = (EFI_FILE_INFO*)file_info_buffer; // ポインタ
+    UINTN kernel_file_size = file_info->FileSize;
+    EFI_PHYSICAL_ADDRESS kernel_base_addr = 0x100000; // 指定したアドレスから確保しないと壊れるため、指定
+    //// カーネルファイルを一時領域に読み込む
     VOID* kernel_buffer;
     status = gBS -> AllocatePool(EfiLoaderData,kernel_file_size,&kernel_buffer); // kernelファイルを読み込むための一時領域の確保
     if(EFI_ERROR(status)){
@@ -270,6 +260,7 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE image_handle,EFI_SYSTEM_TABLE* system_tabl
     //// メモリ領域を確保
     UINT64 entry_addr = *(UINT64*)(kernel_first_addr + 24);
 
+    // カーネルファイルを読み込む
     kernel_file->Read(kernel_file, &kernel_file_size, (VOID*)kernel_base_addr);
     Print(L"Kernel: 0x%0lx (%lu bytes)\n",kernel_base_addr,kernel_file_size);
     // すでに動いているブートサービスを停止させる
@@ -288,8 +279,6 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE image_handle,EFI_SYSTEM_TABLE* system_tabl
             while(1);
         }
     }
-
-    UINT64 entry_addr =*(UINT64*)(kernel_base_addr + 24); // EFL形式の仕様により24バイトのオフセット
 
     struct FrameBufferConfig config = {
         (UINT8*)gop->Mode->FrameBufferBase,
