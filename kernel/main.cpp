@@ -101,7 +101,7 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
 
     for(int x = 0;x < frame_buffer_config.horizontal_resolution; ++x){
         for(int y = 0; y < frame_buffer_config.vertical_resolution; ++y){
-            pixel_witer->Write(x,y,{234,214,255}); // かわいい紫色
+            pixel_witer->Write(x,y,{255,255,255}); // かわいい紫色
         }
     }
 
