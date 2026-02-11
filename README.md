@@ -16,19 +16,18 @@ build
 
 ## kernelのビルド
 edk2フォルダに移動
-以下をたたいてビルド
+【ビルドコマンド】以下をたたいてビルド
 ```sh
 clang++ $CPPFLAGS -O2 --target=x86_64-elf -fno-exceptions -ffreestanding -c ../kernel/main.cpp
 ```
-以下をたたいてリンカ（一つのファイルにビルド結果をまとめる）
+【ビルドコマンド】virtualを使うときは以下
+```sh
+clang++ $CPPFLAGS -O2 --target=x86_64-elf -ffreestanding -fno-exceptions -fno-rtti -c ../kernel/main.cpp
+```
+
+【リンカコマンド】以下をたたいてリンカ（一つのファイルにビルド結果をまとめる）
 ```sh
 ld.lld $LDFLAGS --entry KernelMain -z norelro --image-base 0x100000 --static -z separate-code -o kernel.elf main.o
-```
-virtualを使うときは以下
-```sh
-clang++ $CPPFLAGS -O2 --target=x86_64-elf \
-  -ffreestanding -fno-exceptions -fno-rtti \
-  -c ../kernel/main.cpp
 ```
 ## QEMUの使い方
 edk2フォルダに移動してから以下をたたく
