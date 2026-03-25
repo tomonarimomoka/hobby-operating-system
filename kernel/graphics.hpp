@@ -1,3 +1,5 @@
+#pragma once
+// ↑これがあると複数回読み込まれても重複定義されない
 #include "frame_buffer_config.hpp"
 
 struct PixelColor{

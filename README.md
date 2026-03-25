@@ -29,6 +29,11 @@ clang++ $CPPFLAGS -O2 --target=x86_64-elf -ffreestanding -fno-exceptions -fno-rt
 ```sh
 ld.lld $LDFLAGS --entry KernelMain -z norelro --image-base 0x100000 --static -z separate-code -o kernel.elf main.o
 ```
+
+▼文字を定義するようになったらこちら
+```sh
+ld.lld $LDFLAGS --entry KernelMain -z norelro --image-base 0x100000 --static -z separate-code -o kernel.elf main.o ../kernel/hankaku.o
+```
 ## QEMUの使い方
 edk2フォルダに移動してから以下をたたく
 ```sh

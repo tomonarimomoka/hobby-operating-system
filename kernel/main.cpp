@@ -46,7 +46,12 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
             }
         }
     }
-    WriteAscii(*pixel_witer, 50, 50, 'A', {0,0,0});
-    WriteAscii(*pixel_witer, 58, 50, 'A', {0,0,0});    
-    while (1) __asm__("hlt"); // __asm__はアセンブリ言語を書くための関数。hltはCPUを停止させて省電力にする命令。
+
+    int i = 0;
+    for(char c = '!'; c <= '~'; ++c , ++i){
+      WriteAscii(*pixel_witer,8 * i, 50, c , {0,0,0});
+    } 
+    
+    // __asm__はアセンブリ言語を書くための関数。hltはCPUを停止させて省電力にする命令。
+    while (1) __asm__("hlt"); 
 }
