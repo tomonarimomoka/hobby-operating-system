@@ -17,3 +17,9 @@ async{
 プリエンプティブ：いつでもぶった切られる  ⇒ await のような明示的な譲りポイントが不要　Goなど
 pizzacatさんおすすめ：https://tmandry.gitlab.io/blog/posts/optimizing-await-1/
 LT資料　　　　　　　 ：https://susisu.hatenablog.com/entry/2025/05/28/133921
+
+### 処理順序
+ラウンドロビン：順番に均等に割り振る（A を少し → B を少し → C を少し→ A を少し → B を少し → C を少し）
+FIFO：来た順にそのまま処理（A → B  → C）
+優先度付き＋プリエンプティブ：高優先度Aを少し → 高優先度Aを少し → 低優先度Bを少し
+優先度付き＋FIFO（非プリエンプティブ）：高優先度Aをやりきる → 次の高優先度Bをやりきる
