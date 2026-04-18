@@ -45,7 +45,7 @@ D → 永続性  (Durability)
 　読み書きをアトミックに行える変数？？←謎残る
 
 ## イテレータとジェネレータ
-イテレータ　：
+イテレータ　：順番にアクセスする仕組み
 https://saycon.co.jp/archives/neta/iterator
 ```java
 List<String> fruits = Arrays.asList("りんご", "バナナ", "みかん");
@@ -67,4 +67,10 @@ while (iterator.hasNext()) {
 
 ## relaxed
 relaxedはOSでよく出てくるなぁ。。。
+Relaxedとは、アトミック性だけ保証しャッシュ同期は保証しないという意味
 
+* Sequentially Consistent（seq_cst）  ← 最も厳格・最も遅い
+* Acquire / Release
+* Relaxed                             ← 最も緩い・最も速い
+
+## ユーザーランド
