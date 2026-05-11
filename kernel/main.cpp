@@ -1,5 +1,7 @@
 #include <stdint.h>
-#include <stddef.h> 
+#include <stddef.h>
+#include <cstdio>
+
 // #include <cstdint>
 // #include <cstddef>
 #include "frame_buffer_config.hpp"
@@ -50,7 +52,11 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config){
     int i = 0;
     for(char c = '!'; c <= '~'; ++c , ++i){
       WriteAscii(*pixel_witer,8 * i, 50, c , {0,0,0});
-    } 
+    }
+    WriteString(*pixel_witer, 0, 66, "Hello, world!", {0,0,255});
+    char buf[128];
+    sprintf(buf,"1 + 2 = %d", 1+2);
+    WriteString(*pixel_witer,0,82,buf,{0,0,0});
     
     // __asm__はアセンブリ言語を書くための関数。hltはCPUを停止させて省電力にする命令。
     while (1) __asm__("hlt"); 
